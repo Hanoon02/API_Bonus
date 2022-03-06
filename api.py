@@ -1,14 +1,18 @@
 import os.path
+import itertools
 import os
 import io
 import json
-from urllib import response
+import shutil
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+
 SCOPES = ['https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly',
-          'https://www.googleapis.com/auth/classroom.courses.readonly']
+          'https://www.googleapis.com/auth/classroom.courses.readonly',
+          'https://www.googleapis.com/auth/drive.readonly']
 
 
 def get_cred():  # To get the credential
@@ -27,7 +31,32 @@ def get_cred():  # To get the credential
     return creds
 
 
-def classCodes(creds=get_cred()):
+def driveDownload(creds=get_cred()):  # To download from drive using links from txt file
+    with open('DownloadLinks.txt', 'r') as links:
+        ids = links.readlines()
+    service = build('drive', 'v3', credentials=creds)
+    counter = 1
+    print('Please wait while Downloading')
+    for eachId in ids:
+        print('-'*50)
+        print(f"Downloading file number {counter}")
+        file_id = eachId.split()[0]
+        name = " ".join(eachId.split()[1:])
+        request = service.files().get_media(fileId=file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            print("Download %d%%." % int(status.progress() * 100))
+        fh.seek(0)
+        dest = os.path.join('downloadedMaterial/', name)
+        with open(dest, 'wb') as f:
+            shutil.copyfileobj(fh, f)
+        counter += 1
+
+
+def classCodes(creds=get_cred()):  # To get all class codes
     courseDetails = {}
     service = build('classroom', 'v1', credentials=creds)
     results = service.courses().list().execute()
@@ -43,68 +72,110 @@ def getCourseMaterials(creds, id):
     results = service.courses().courseWorkMaterials().list(
         courseId=course_id[id], pageSize=10).execute()
     courses = results.get('courseWorkMaterial')
-    return courses
+    tokenNext = results.get("nextPageToken")
+    return courses, tokenNext
+
+
+def nextPageMaterials(creds, id, next_token):  # To get next page of output
+    service = build('classroom', 'v1', credentials=creds)
+    results = service.courses().courseWorkMaterials().list(
+        courseId=course_id[id], pageSize=10, pageToken=next_token).execute()
+    courses = results.get('courseWorkMaterial')
+    tokenNext = results.get("nextPageToken")
+    return courses, tokenNext
 
 
 def viewMaterials():  # To get courses for each
     names = list(course_id.keys())
     course = int(input(
-        f"Please choose which course material would you like to obtain: \n1. {names[0]}\n2. {names[1]}\n3. {names[2]}\n4. {names[3]}\n5. {names[4]}\nEnter your number: "))
-    courseMaterial = getCourseMaterials(creds, names[course-1])
+        f"Please choose which course material would you like to obtain: \n1. {names[0]}\n2. {names[1]}\n3. {names[2]}\n4. {names[3]}\n5. {names[4]}\n6. {names[5]}\nEnter your number: "))
+    courseMaterial, token = getCourseMaterials(creds, names[course-1])
     try:
-        for i in courseMaterial:
-            try:
-                print("----------------------------------------------------------------------------------------------------------------")
-                print("Title: ", i['title'])
-                for j in i['materials']:
-                    print("Material Name: ",
-                          j["driveFile"]["driveFile"]["title"])
-                    print("Link: ", j["driveFile"]
-                          ["driveFile"]["alternateLink"])
-                    print()
-                print()
-            except:
-                print("----------------------------------------------------------------------------------------------------------------")
-                print("File could not be retrieved")
+        printMaterials(courseMaterial)
     except:
         print("The course contains no materials")
-    pass
+    next = input("Do you wish to view the next page[Y/N]: ")
+    while(next == "Y"):
+        courseMaterial, token = nextPageMaterials(
+            creds, names[course-1], token)
+        try:
+            printMaterials(courseMaterial)
+        except:
+            print("The course contains no materials")
+        next = input("Do you wish to view the next page[Y/N]: ")
+    else:
+        pass
 
 
-def downloadMaterial():
+def printMaterials(courseMaterial):  # To print material for each page
+    for i in courseMaterial:
+        try:
+            print("-"*50)
+            print("Title: ", i['title'])
+            for j in i['materials']:
+                print("Material Name: ",
+                      j["driveFile"]["driveFile"]["title"])
+                print("Link: ", j["driveFile"]
+                      ["driveFile"]["alternateLink"])
+                print()
+            print()
+        except:
+            print("-"*50)
+            print("File could not be retrieved")
+
+
+def downloadMaterial():  # To download materials from list
+    files = []
     names = list(course_id.keys())
     course = int(input(
-        f"Please choose which course material would you like to obtain: \n1. {names[0]}\n2. {names[1]}\n3. {names[2]}\n4. {names[3]}\n5. {names[4]}\nEnter your number: "))
-    courseMaterial = getCourseMaterials(creds, names[course-1])
-    k = 1
-    with open("DriveLinks.txt", "w")as q:
+        f"Please choose which course material would you like to obtain: \n1. {names[0]}\n2. {names[1]}\n3. {names[2]}\n4. {names[3]}\n5. {names[4]}\n6. {names[5]}\nEnter your number: "))
+    courseMaterial, token = getCourseMaterials(creds, names[course-1])
+    try:
+        t = downloadpage(courseMaterial, k)
+        filePerPage = list(map(int, input(
+            "Please enter the files you want to download: ").split()))
+        files.append(filePerPage)
+    except:
+        print("The course contains no materials")
+    next = input("Do you wish to view the next page[Y/N]: ")
+    while(next == "Y"):
+        courseMaterial, token = nextPageMaterials(
+            creds, names[course-1], token)
         try:
-            for i in courseMaterial:
-                try:
-                    print(
-                        "----------------------------------------------------------------------------------------------------------------")
-                    print("Title: ", i['title'])
-                    for j in i['materials']:
-                        print(f"{k}. Material Name: ",
-                              j["driveFile"]["driveFile"]["title"])
-                        q.write(
-                            f"{j['driveFile']['driveFile']['alternateLink']}\n")
-                        k += 1
-                except:
-                    pass
+            t = downloadpage(courseMaterial, t)
+            filePerPage = list(map(int, input(
+                "Please enter the files you want to download: ").split()))
+            files.append(filePerPage)
         except:
-            pass
-    files = list(
-        map(int, input("Please enter the files you want to download: ").split()))
-    with open("DriveLinks.txt", "r")as t:
-        with open("DownloadLinks.txt", "w") as d:
-            for file in files:
-                d.write(f"{t.readlines()[file-1]}")
-                t.seek(0)
+            print("The course contains no materials")
+        next = input("Do you wish to view the next page[Y/N]: ")
+    else:
+        pass
+    with open("DownloadLinks.txt", "w") as d:
+        for file in list(itertools.chain.from_iterable(files)):
+            d.write(f"{links[file-1]}")
     pass
 
 
-def getClassCodes():
+def downloadpage(courseMaterial, k):  # To view the download list per page
+    for i in courseMaterial:
+        try:
+            print("-"*50)
+            print("Title: ", i['title'])
+            for j in i['materials']:
+                print(f"{k}. Material Name: ",
+                      j["driveFile"]["driveFile"]["title"])
+                links.append(
+                    f"{j['driveFile']['driveFile']['id']}" +
+                    f" {j['driveFile']['driveFile']['title']}\n"
+                )
+                k += 1
+        except:
+            pass
+    return k
+
+
+def getClassCodes():  # Store the class IDs
     if os.path.isfile('className.txt'):
         with open('className.txt', 'r') as f:
             data = json.load(f)
@@ -117,11 +188,16 @@ def getClassCodes():
         return data
 
 
+k = 1
+links = []
 course_id = getClassCodes()
 creds = get_cred()
 type = int(input(
     "Please choose the method by which you want to retrieve the files: \n1.View course materials directly\n2.Download course materials materials\nPlease enter the number: "))
 if type == 1:
     viewMaterials()
+    with open("token.json", "w") as h:
+        pass
 elif type == 2:
     downloadMaterial()
+    driveDownload()

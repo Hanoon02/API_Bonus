@@ -20,4 +20,4 @@ Then in the menu of the main program, you can wish to see the materials correspo
 to download them then they will be in a downloadMaterial folder
 
 Contributors:
-Naman Aggarwal, Ahmed Hanoon
+@Naman-1, @Hanoon02

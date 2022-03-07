@@ -196,8 +196,6 @@ type = int(input(
     "Please choose the method by which you want to retrieve the files: \n1.View course materials directly\n2.Download course materials materials\nPlease enter the number: "))
 if type == 1:
     viewMaterials()
-    with open("token.json", "w") as h:
-        pass
 elif type == 2:
     downloadMaterial()
     driveDownload()

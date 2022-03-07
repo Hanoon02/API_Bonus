@@ -20,9 +20,4 @@ Then in the menu of the main program, you can wish to see the materials correspo
 to download them then they will be in a downloadMaterial folder
 
 Contributors:
-1)Naman Aggarwal
-Mail - naman21070@iiitd.ac.in
-Roll - 2021070
-2)Ahmed Hanoon
-Mail - ahmed21006@iiitd.ac.in
-Roll - 2021006
+Naman Aggarwal, Ahmed Hanoon

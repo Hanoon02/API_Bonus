@@ -1,4 +1,3 @@
-# An API Program to retrieve files from google classroom courses
 This project was created using Google drive and classroom API
 
 ### Dependencies:-

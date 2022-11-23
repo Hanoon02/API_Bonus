@@ -1,9 +1,8 @@
 This project was created using Google drive and classroom API
 
 ### Dependencies:-
-Kindly run the following command in the command prompt with pip and python prior installed
-pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib"
-"
+1. Run "pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib" in terminal
+
 ### About:-
 1. Use this API to access all your classroom materials uploaded by your professors and TAs
 2. If you want to download multiple files, you can do so in one go as compared to the default method in classroom where you have to open each file and then open them in the drive from there you have to download them.
